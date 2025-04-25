@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Sosyal Medya Akışı</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .login-screen, .feed-screen, .profile-screen {
+      display: none;
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    input, textarea, button {
+      width: 100%;
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    button {
+      background-color: #1877f2;
+      color: white;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+    }
+
+    .post {
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+      background: #ffffff;
+    }
+
+    .username {
+      font-weight: bold;
+      color: #1877f2;
+    }
+
+    .post-actions button {
+      margin-right: 10px;
+    }
+
+    .logout {
+      text-align: right;
+      margin-bottom: 10px;
+    }
+
+    .bottom-nav {
+      display: flex;
+      justify-content: space-between;
+      background-color: #1877f2;
+      padding: 10px;
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+    }
+
+    .bottom-nav button {
+      background-color: transparent;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .dark-mode {
+      background-color: #333;
+      color: white;
+    }
+
+    .post-image {
+      width: 100%;
+      max-height: 400px;
+      object-fit: cover;
+      margin-top: 10px;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Login / Kayıt Bölümü -->
+    <div class="login-screen" id="loginScreen">
+      <h2>Giriş Yap / Kayıt Ol</h2>
+      <input type="text" id="username" placeholder="Kullanıcı Adı">
+      <input type="password" id="password" placeholder="Şifre">
+      <button onclick="login()">Giriş Yap</button>
+      <button onclick="register()">Kayıt Ol</button>
+    </div>
+
+    <!-- Gönderi Akışı Bölümü -->
+    <div class="feed-screen" id="feedScreen">
+      <div class="logout">
+        Hoş geldin <span id="userDisplay"></span> |
+        <a href="#" onclick="logout()">Çıkış Yap</a>
+      </div>
+
+      <textarea id="postText" placeholder="Ne düşünüyorsun?"></textarea>
+      <input type="file" id="postImage" accept="image/*">
+      <button onclick="sharePost()">Paylaş</button>
+
+      <div id="posts">
+        <!-- Gönderiler buraya eklenecek -->
+      </div>
+    </div>
+
+    <!-- Profil Bölümü -->
+    <div class="profile-screen" id="profileScreen">
+      <h2>Profil</h2>
+      <p id="profileName"></p>
+      <p>Takipçi: <span id="followerCount">0</span></p>
+      <p>Takip Edilen: <span id="followingCount">0</span></p>
+      <p>Gönderi Sayısı: <span id="postCount">0</span></p>
+    </div>
+  </div>
+
+  <!-- Alt Menü -->
+  <div class="bottom-nav" id="bottomNav">
+    <button onclick="showFeed()">Ana Sayfa</button>
+    <button onclick="showProfile()">Profil</button>
+    <button onclick="toggleDarkMode()">Gece Modu</button>
+  </div>
+
+  <script>
+    let user = localStorage.getItem("user");
+    let followers = 0;
+    let following = 0;
+    let postCount = 0;
+    let followingUsers = new Set();
+
+    window.onload = () => {
+      if (user) {
+        loadUserData();
+        showFeed();
+      } else {
+        showLogin();
+      }
+    };
+
+    function loadUserData() {
+      user = localStorage.getItem("user");
+      followers = JSON.parse(localStorage.getItem(`${user}_followers`) || '0');
+      following = JSON.parse(localStorage.getItem(`${user}_following`) || '0');
+      postCount = JSON.parse(localStorage.getItem(`${user}_postCount`) || '0');
+      followingUsers = new Set(JSON.parse(localStorage.getItem(`${user}_followingUsers`) || '[]'));
+    }
+
+    function saveUserData() {
+      localStorage.setItem(`${user}_followers`, JSON.stringify(followers));
+      localStorage.setItem(`${user}_following`, JSON.stringify(following));
+      localStorage.setItem(`${user}_postCount`, JSON.stringify(postCount));
+      localStorage.setItem(`${user}_followingUsers`, JSON.stringify(Array.from(followingUsers)));
+    }
+
+    function showLogin() {
+      document.getElementById("loginScreen").style.display = "block";
+      document.getElementById("feedScreen").style.display = "none";
+      document.getElementById("profileScreen").style.display = "none";
+      document.getElementById("bottomNav").style.display = "none";
+    }
+
+    function showFeed() {
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("feedScreen").style.display = "block";
+      document.getElementById("profileScreen").style.display = "none";
+      document.getElementById("userDisplay").innerText = user;
+      document.getElementById("bottomNav").style.display = "flex";
+      updateProfileStats();
+    }
+
+    function showProfile() {
+      document.getElementById("feedScreen").style.display = "none";
+      document.getElementById("profileScreen").style.display = "block";
+      document.getElementById("profileName").innerText = user;
+      updateProfileStats();
+    }
+
+    function login() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (username && password) {
+        localStorage.setItem("user", username);
+        user = username;
+        showFeed();
+        loadUserData();
+      } else {
+        alert("Lütfen kullanıcı adı ve şifre girin.");
+      }
+    }
+
+    function register() {
+      login();
+    }
+
+    function logout() {
+      localStorage.removeItem("user");
+      showLogin();
+    }
+
+    function sharePost() {
+      const text = document.getElementById("postText").value.trim();
+      const image = document.getElementById("postImage").files[0];
+      if (text === "" && !image) return;
+
+      const post = document.createElement("div");
+      post.className = "post";
+      const postContent = `<div class="username">@${user}</div><div>${text}</div>`;
+
+      if (image) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const imgElement = `<img src="${e.target.result}" class="post-image">`;
+          post.innerHTML = postContent + imgElement;
+          finishPost(post);
+        };
+        reader.readAsDataURL(image);
+      } else {
+        post.innerHTML = postContent;
+        finishPost(post);
+      }
+
+      function finishPost(post) {
+        post.innerHTML += `
+          <div class="post-actions">
+            <button onclick="likePost(this)">❤️ 0</button>
+            <button onclick="repost(this)">🔄</button>
+            <button onclick="followUser(this, '${user}')" style="color: ${followingUsers.has(user) ? 'red' : 'black'};">
+              ${followingUsers.has(user) ? '✔ Takip Ediliyor' : '➕ Takip Et'}
+            </button>
+          </div>
+        `;
+        post.innerHTML += `<button onclick="deletePost(this)">🗑️ Sil</button>`;
+        post.innerHTML += `
+          <div class="comment-section">
+            <input type="text" placeholder="Yorum yaz..." onkeydown="if(event.key === 'Enter') addComment(this)">
+            <div class="comments"></div>
+          </div>
+        `;
+        document.getElementById("posts").prepend(post);
+        document.getElementById("postText").value = "";
+        document.getElementById("postImage").value = "";
+        postCount++;
+        saveUserData();
+      }
+    }
+
+    function likePost(btn) {
+      let count = parseInt(btn.innerText.split(" ")[1]);
+      if (btn.classList.contains("liked")) {
+        count--;
+        btn.classList.remove("liked");
+      } else {
+        count++;
+        btn.classList.add("liked");
+      }
+      btn.innerText = `❤️ ${count}`;
+    }
+
+    function repost(btn) {
+      const post = btn.closest(".post");
+      const reposted = post.cloneNode(true);
+      document.getElementById("posts").prepend(reposted);
+    }
+
+    function followUser(btn, username) {
+      if (username === user) {
+        alert("Kendinizi takip edemezsiniz.");
+        return;
+      }
+      const isFollowing = followingUsers.has(username);
+      if (isFollowing) {
+        followingUsers.delete(username);
+        following--;
+        followers--;
+        btn.innerText = "➕ Takip Et";
+        btn.style.color = "black";
+      } else {
+        followingUsers.add(username);
+        following++;
+        followers++;
+        btn.innerText = "✔ Takip Ediliyor";
+        btn.style.color = "red";
+      }
+      saveUserData();
+      updateProfileStats();
+    }
+
+    function deletePost(btn) {
+      const post = btn.closest(".post");
+      post.remove();
+      postCount--;
+      saveUserData();
+      updateProfileStats();
+    }
+
+    function addComment(input) {
+      const text = input.value.trim();
+      if (text === "") return;
+
+      const commentsDiv = input.nextElementSibling;
+      const comment = document.createElement("div");
+      comment.innerText = `@${user}: ${text}`;
+      commentsDiv.appendChild(comment);
+      input.value = "";
+    }
+
+    function updateProfileStats() {
+      document.getElementById("postCount").innerText = postCount;
+      document.getElementById("followerCount").innerText = followers;
+      document.getElementById("followingCount").innerText = following;
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark-mode");
+    }
+  </script>
+</body>
+</html>
